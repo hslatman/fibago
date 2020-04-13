@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 
+	"github.com/gregjones/httpcache"
 	"github.com/sendgrid/rest"
 )
 
@@ -17,6 +18,7 @@ var (
 type Client struct {
 	baseURL string
 	apiKey  string
+	Cache   httpcache.Cache
 }
 
 func NewClient(apiKey string) (*Client, error) {
@@ -63,7 +65,18 @@ func (c *Client) Interrogate(fingerprint string) (*rest.Response, error) {
 		Body:        requestBody,
 	}
 
-	response, err := rest.Send(request)
+	response, err := c.checkCache(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if response != nil {
+		return response, nil
+	}
+
+	response, err = rest.Send(request)
+
+	c.updateCache(request, response)
 
 	return response, err
 }
