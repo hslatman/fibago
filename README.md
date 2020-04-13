@@ -89,11 +89,11 @@ func main() {
 
     cache := client.NewDiskCache("./cache") // This will create the cache directory in the current working directory
     
-	client, err := client.NewClient("<apikey>")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+    client, err := client.NewClient("<apikey>")
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
 
     client.Cache = cache // This line enables caching responses from the Fingerbank API
     
