@@ -133,7 +133,9 @@ The library uses [sendgrid/rest](https://github.com/sendgrid/rest) under the hoo
 # TODO
 
 * More API endpoints
-* Cache invalidation
+* Cache invalidation (either based on date and some timeout, or passing some additional parameter from client, or something different?)
 * Nicer cache approach with plain http responses (not json marshalled) and extending the default HTTP client (i.e. RoundTripper?)
 * Typed responses
+* Make the client implementation use a local instance of the Fingerbank data (see Static() function and description on [fingerbank/perl-client](https://github.com/fingerbank/perl-client/blob/master/client-development-guidelines.md))
+* Create a diagram of how the Go client works, including local database lookup, online lookups, cached lookups, etc
 * Tests

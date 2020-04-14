@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/gregjones/httpcache/diskcache"
 	"github.com/sendgrid/rest"
@@ -27,6 +28,8 @@ func (c *Client) checkCache(r rest.Request) (*rest.Response, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println(ck)
 
 	cachedResponse, ok := c.Cache.Get(ck)
 	if ok {
@@ -73,7 +76,13 @@ func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
 func cacheKey(r rest.Request) (string, error) {
 
 	if r.Method == rest.Get {
-		key := r.BaseURL + string(r.Body) // NOTE: we include the query in the cache key, because that's how the Fingerbank API works
+		// TODO: exclude the apikey from the cache key?
+		// TODO: order the fields? we've already taken care of it, sort of, by the ordered if-statements for adding it to the queryParams
+		data, err := json.Marshal(r.QueryParams)
+		if err != nil {
+			return "", err
+		}
+		key := r.BaseURL + string(data[:]) //strings.Join(r.QueryParams, "|") //+ string(r.Body) // NOTE: we include the query in the cache key, because that's how the Fingerbank API works
 		return key, nil
 	}
 
