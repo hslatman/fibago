@@ -5,18 +5,17 @@ import (
 
 	"github.com/tidwall/gjson"
 
-	"github.com/hslatman/fibago/client"
+	fc "github.com/hslatman/fibago/client"
 )
 
 func main() {
 
-	client, err := client.NewClient("<apikey>")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	client := fc.NewClient("<apikey>")
 
-	response, err := client.Interrogate("1,15,3,6,44,46,47,31,33,121,249,43") // Example DHCP fingerprint
+	params := &fc.InterrogateParameters{
+		DHCPFingerprint: "1,15,3,6,44,46,47,31,33,121,249,43", // Example DHCP fingerprint
+	}
+	response, err := client.Interrogate(params) // Example DHCP fingerprint
 
 	if err != nil {
 		fmt.Println(err)

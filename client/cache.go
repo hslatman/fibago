@@ -4,22 +4,36 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/gregjones/httpcache/diskcache"
+	"github.com/gregjones/httpcache"
 	"github.com/sendgrid/rest"
 )
 
-var (
-	CacheHeader = "X-From-Cache"
-)
+type CacheModifier func(c *Client) // TODO: we could make it work on Cache, but then some more work is required to make it work with httpcache.Cache (or do that part ourselves)
 
-func NewDiskCache(basePath string) *diskcache.Cache {
-	return diskcache.New(basePath)
+type Cache interface {
+	httpcache.Cache
+}
+
+// TODO: add "cache backend" specific implementations, like httpcache/diskcache, in subpackages
+
+func WithCache(cache Cache, modifiers ...CacheModifier) ClientModifier {
+	return func(c *Client) {
+		c.cache = cache
+		for _, modifier := range modifiers {
+			modifier(c)
+		}
+	}
+}
+
+func WithCacheHeader(cacheHeader string) CacheModifier {
+	return func(c *Client) {
+		c.cacheHeader = cacheHeader
+	}
 }
 
 func (c *Client) checkCache(r rest.Request) (*rest.Response, error) {
 
-	// No cache set; skip cache check
-	if c.Cache == nil {
+	if c.cache == nil {
 		return nil, nil
 	}
 
@@ -28,11 +42,11 @@ func (c *Client) checkCache(r rest.Request) (*rest.Response, error) {
 		return nil, err
 	}
 
-	cachedResponse, ok := c.Cache.Get(ck)
+	cachedResponse, ok := c.cache.Get(ck)
 	if ok {
 		var response rest.Response
 		err := json.Unmarshal(cachedResponse, &response)
-		response.Headers[CacheHeader] = []string{"1"}
+		response.Headers[c.cacheHeader] = []string{"1"}
 		return &response, err
 	}
 
@@ -42,17 +56,14 @@ func (c *Client) checkCache(r rest.Request) (*rest.Response, error) {
 
 func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
 
-	// Cache is not set; return early
-	if c.Cache == nil {
+	if c.cache == nil {
 		return nil
 	}
 
-	// We can't update the cache when no response available
 	if resp == nil {
 		return nil
 	}
 
-	// Don't store responses that are not OK-ish
 	if resp.StatusCode != 200 {
 		return nil
 	}
@@ -62,9 +73,9 @@ func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
 		return err
 	}
 
-	data, err := json.Marshal(resp)
+	data, err := json.Marshal(resp) // TODO: we may want to store this as an http.Request; not a rest.Request
 	if err == nil {
-		c.Cache.Set(ck, data)
+		c.cache.Set(ck, data)
 	}
 
 	return nil
@@ -73,7 +84,13 @@ func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
 func cacheKey(r rest.Request) (string, error) {
 
 	if r.Method == rest.Get {
-		key := r.BaseURL + string(r.Body) // NOTE: we include the query in the cache key, because that's how the Fingerbank API works
+		// TODO: exclude the apikey from the cache key?
+		// TODO: order the fields? we've already taken care of it, sort of, by the ordered if-statements for adding it to the queryParams
+		data, err := json.Marshal(r.QueryParams)
+		if err != nil {
+			return "", err
+		}
+		key := r.BaseURL + string(data[:]) // NOTE: all query parameters are used in creating the cache key; alternatively, when using the body, that should be included, instead
 		return key, nil
 	}
 
