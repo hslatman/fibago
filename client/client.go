@@ -1,7 +1,7 @@
 package client
 
 import (
-	//"encoding/json"
+	//"fmt"
 
 	"strconv"
 	"strings"
@@ -49,6 +49,8 @@ func NewClient(apiKey string, modifiers ...ClientModifier) *Client {
 		modifier(c)
 	}
 
+	c.debug("configured client") // TODO: some way to introspect the modifiers that were applied and print it nicely?
+
 	return c
 }
 
@@ -78,6 +80,7 @@ type InterrogateParameters struct {
 
 func (c *Client) Interrogate(params *InterrogateParameters) (*rest.Response, error) {
 
+	// TODO: probably want to refactor some of the requests into a more generic function to use
 	// TODO: do we want to keep InterrogateParameters like this, or provide some other way for the parameters to be passed, like the modifier approach?
 
 	url := c.baseURL + endpointInterrogate
@@ -100,6 +103,8 @@ func (c *Client) Interrogate(params *InterrogateParameters) (*rest.Response, err
 		queryParams["user_agents"] = strings.Join(params.UserAgents, ",") // TODO: documentation looks to allow multiple user agents; this should do it, right?
 	}
 
+	c.debug("preparing request")
+
 	request := rest.Request{
 		Method:      rest.Get,
 		BaseURL:     url,
@@ -115,6 +120,8 @@ func (c *Client) Interrogate(params *InterrogateParameters) (*rest.Response, err
 	if response != nil {
 		return response, nil
 	}
+
+	c.debug("executing request")
 
 	response, err = rest.Send(request)
 
