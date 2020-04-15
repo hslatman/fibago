@@ -2,52 +2,72 @@ package client
 
 import (
 	//"encoding/json"
-	"fmt"
+
 	"strconv"
 	"strings"
 
-	"github.com/gregjones/httpcache"
 	"github.com/sendgrid/rest"
 )
 
-const version = "0.0.1"
+const (
+	version     = "0.0.1"
+	baseURL     = "https://api.fingerbank.org/api/v2"
+	userAgent   = "https://github.com/hslatman/fibago"
+	cacheHeader = "X-From-Cache"
 
-var (
-	BaseURL                 = "https://api.fingerbank.org"
-	UserAgent               = "https://github.com/hslatman/fibago"
-	EndpointInterrogate     = "/api/v2/combinations/interrogate"
-	EndpointDevices         = "/api/v2/devices/"
-	EndpointDevicesBaseInfo = "/api/v2/devices/base_info"
-	EndpointOUI             = "/api/v2/oui"
-	EndpointStatic          = "/api/v2/download/db"
-	EndpointUsers           = "/api/v2/users"
+	endpointInterrogate     = "/combinations/interrogate"
+	endpointDevices         = "/devices/"
+	endpointDevicesBaseInfo = "/devices/base_info"
+	endpointOUI             = "/oui"
+	endpointStatic          = "/download/db"
+	endpointUsers           = "/users"
 )
 
+type ClientModifier func(c *Client)
+
 type Client struct {
-	baseURL string
-	apiKey  string
-	Cache   httpcache.Cache
+	baseURL     string
+	apiKey      string
+	userAgent   string
+	modifiers   []ClientModifier
+	logger      Logger
+	cache       Cache
+	cacheHeader string
 }
 
-func NewClient(apiKey string) (*Client, error) {
+func NewClient(apiKey string, modifiers ...ClientModifier) *Client {
 
-	client := &Client{
-		baseURL: BaseURL,
-		apiKey:  apiKey,
+	c := &Client{
+		baseURL:     baseURL,
+		apiKey:      apiKey,
+		userAgent:   userAgent,
+		cacheHeader: cacheHeader,
 	}
 
-	return client, nil
+	c.modifiers = append(c.modifiers, modifiers...)
+	for _, modifier := range c.modifiers {
+		modifier(c)
+	}
+
+	return c
 }
 
-func NewClientWithCache(apiKey string, cache httpcache.Cache) (*Client, error) {
-
-	client := &Client{
-		baseURL: BaseURL,
-		apiKey:  apiKey,
-		Cache:   cache,
+func WithLogger(logger Logger) ClientModifier {
+	return func(c *Client) {
+		c.logger = logger
 	}
+}
 
-	return client, nil
+func WithBaseURL(baseURL string) ClientModifier {
+	return func(c *Client) {
+		c.baseURL = baseURL
+	}
+}
+
+func WithUserAgent(userAgent string) ClientModifier {
+	return func(c *Client) {
+		c.userAgent = userAgent
+	}
 }
 
 type InterrogateParameters struct {
@@ -58,16 +78,13 @@ type InterrogateParameters struct {
 
 func (c *Client) Interrogate(params *InterrogateParameters) (*rest.Response, error) {
 
-	// Build the URL
-	url := c.baseURL + EndpointInterrogate
+	// TODO: do we want to keep InterrogateParameters like this, or provide some other way for the parameters to be passed, like the modifier approach?
 
-	// Build the request headers
+	url := c.baseURL + endpointInterrogate
+
 	headers := make(map[string]string)
 	headers["Content-Type"] = "application/json"
-	headers["User-Agent"] = UserAgent
-
-	// GET Combinations
-	method := rest.Get
+	headers["User-Agent"] = c.userAgent
 
 	// Build the query parameters; Fingerbank does not only support querying using the body, but also in query parameters.
 	// This is more like normal queries and also works with our caching, so we've changed the implementation to reflect that.
@@ -83,26 +100,12 @@ func (c *Client) Interrogate(params *InterrogateParameters) (*rest.Response, err
 		queryParams["user_agents"] = strings.Join(params.UserAgents, ",") // TODO: documentation looks to allow multiple user agents; this should do it, right?
 	}
 
-	fmt.Println(fmt.Sprintf("%+v", queryParams))
-
-	// Build the body; NOTE: this is thus not required anymore, but is good to know that it's possible too.
-	// body := make(map[string]string)
-	// body["dhcp_fingerprint"] = fingerprint
-	// requestBody, err := json.Marshal(body)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// Make the API call
 	request := rest.Request{
-		Method:      method,
+		Method:      rest.Get,
 		BaseURL:     url,
 		Headers:     headers,
 		QueryParams: queryParams,
-		//Body:        requestBody,
 	}
-
-	fmt.Println(fmt.Sprintf("%+v", request))
 
 	response, err := c.checkCache(request)
 	if err != nil {
@@ -112,8 +115,6 @@ func (c *Client) Interrogate(params *InterrogateParameters) (*rest.Response, err
 	if response != nil {
 		return response, nil
 	}
-
-	fmt.Println(fmt.Sprintf("%+v", request))
 
 	response, err = rest.Send(request)
 
@@ -143,30 +144,22 @@ func (c *Client) Devices(id int) (*rest.Response, error) {
 
 	// TODO: this one does not seem to work either ...
 
-	url := c.baseURL + EndpointDevices //+ strconv.Itoa(id)
+	url := c.baseURL + endpointDevices //+ strconv.Itoa(id)
 
-	// Build the request headers
 	headers := make(map[string]string)
 	headers["Content-Type"] = "application/json"
-	headers["User-Agent"] = UserAgent
+	headers["User-Agent"] = c.userAgent
 
-	// GET Combinations
-	method := rest.Get
-
-	// Build the query parameters
 	queryParams := make(map[string]string)
 	queryParams["key"] = c.apiKey
 	queryParams["id"] = strconv.Itoa(id)
 
-	// Make the API call
 	request := rest.Request{
-		Method:      method,
+		Method:      rest.Get,
 		BaseURL:     url,
 		Headers:     headers,
 		QueryParams: queryParams,
 	}
-
-	fmt.Println(fmt.Sprintf("%+v", request))
 
 	response, err := c.checkCache(request)
 	if err != nil {
@@ -185,22 +178,17 @@ func (c *Client) Devices(id int) (*rest.Response, error) {
 }
 
 func (c *Client) DeviceIsA(id string, otherID string) {
-
+	// TODO: implement
 }
 
 func (c *Client) DevicesBaseInfo() (*rest.Response, error) {
-	// Build the URL
-	url := c.baseURL + EndpointDevicesBaseInfo
 
-	// Build the request headers
+	url := c.baseURL + endpointDevicesBaseInfo
+
 	headers := make(map[string]string)
 	headers["Content-Type"] = "application/json"
-	headers["User-Agent"] = UserAgent
+	headers["User-Agent"] = c.userAgent
 
-	// GET Combinations
-	method := rest.Get
-
-	// Build the query parameters
 	queryParams := make(map[string]string)
 	queryParams["key"] = c.apiKey
 
@@ -208,9 +196,8 @@ func (c *Client) DevicesBaseInfo() (*rest.Response, error) {
 	// This call results in a large JSON, like 3, 4 MB, which may get bigger with the other fields. We probably want to order the fields in such a way that the response can be
 	// cached more deterministically
 
-	// Make the API call
 	request := rest.Request{
-		Method:      method,
+		Method:      rest.Get,
 		BaseURL:     url,
 		Headers:     headers,
 		QueryParams: queryParams,
@@ -234,25 +221,19 @@ func (c *Client) DevicesBaseInfo() (*rest.Response, error) {
 
 func (c *Client) AccountInfo() (*rest.Response, error) {
 
-	// Build the URL
-	url := c.baseURL + EndpointUsers //+ "/" + c.apiKey // TODO: this seems to be incorrect? devices in path is incorrect too. Documentation on Fingerbank website is a bit weird too.
+	url := c.baseURL + endpointUsers //+ "/" + c.apiKey // TODO: this seems to be incorrect? devices in path is incorrect too. Documentation on Fingerbank website is a bit weird too.
 
-	// Build the request headers
 	headers := make(map[string]string)
 	headers["Content-Type"] = "application/json"
-	headers["User-Agent"] = UserAgent
-
-	// GET Combinations
-	method := rest.Get
+	headers["User-Agent"] = c.userAgent
 
 	// Build the query parameters
 	//queryParams := make(map[string]string)
 	//queryParams["key"] = c.apiKey
 	//queryParams["account_key"] = c.apiKey
 
-	// Make the API call
 	request := rest.Request{
-		Method:  method,
+		Method:  rest.Get,
 		BaseURL: url,
 		Headers: headers,
 		//QueryParams: queryParams,
@@ -272,5 +253,4 @@ func (c *Client) AccountInfo() (*rest.Response, error) {
 	//c.updateCache(request, response)
 
 	return response, err
-
 }
