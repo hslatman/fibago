@@ -106,13 +106,20 @@ func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
 func cacheKey(r rest.Request) (string, error) {
 
 	if r.Method == rest.Get {
-		// TODO: exclude the apikey from the cache key?
 		// TODO: order the fields? we've already taken care of it, sort of, by the ordered if-statements for adding it to the queryParams
-		data, err := json.Marshal(r.QueryParams)
+
+		authKey := r.QueryParams["key"]
+		delete(r.QueryParams, "key") // We're removing the key from the parameters, such that it does not end up in the cache
+
+		request, err := rest.BuildRequestObject(r)
 		if err != nil {
 			return "", err
 		}
-		key := r.BaseURL + string(data[:]) // NOTE: all query parameters are used in creating the cache key; alternatively, when using the body, that should be included, instead
+
+		r.QueryParams["key"] = authKey // We're putting the authentication key back where it was
+
+		key := request.URL.String()
+
 		return key, nil
 	}
 
