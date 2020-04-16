@@ -1,8 +1,9 @@
-package client
+package fibago
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/gregjones/httpcache"
 	"github.com/sendgrid/rest"
@@ -33,30 +34,44 @@ func WithCacheHeader(cacheHeader string) CacheModifier {
 
 func (c *Client) checkCache(r rest.Request) (*rest.Response, error) {
 
+	c.debug("checking cache")
+
 	if c.cache == nil {
+		c.debug("no cache configured")
 		return nil, nil
 	}
 
 	ck, err := cacheKey(r)
 	if err != nil {
+		c.debug(fmt.Sprintf("error creating cache key: %s", err.Error()))
 		return nil, err
 	}
+
+	c.debug(fmt.Sprintf("looking up key: %s", ck))
 
 	cachedResponse, ok := c.cache.Get(ck)
 	if ok {
 		var response rest.Response
 		err := json.Unmarshal(cachedResponse, &response)
-		response.Headers[c.cacheHeader] = []string{"1"}
+		if c.cacheHeader != "" {
+			response.Headers[c.cacheHeader] = []string{"1"}
+		}
+
+		c.debug("returning cached response")
 		return &response, err
 	}
 
+	c.debug("no cached response found")
 	// No cached response found; return empty
 	return nil, nil
 }
 
 func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
 
+	c.debug("updating cache")
+
 	if c.cache == nil {
+		c.debug("no cache configured")
 		return nil
 	}
 
@@ -65,18 +80,25 @@ func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
 	}
 
 	if resp.StatusCode != 200 {
+		c.debug(fmt.Sprintf("abort storing response with status code %d", resp.StatusCode))
 		return nil
 	}
 
 	ck, err := cacheKey(req)
 	if err != nil {
+		c.debug(fmt.Sprintf("error creating cache key: %s", err.Error()))
 		return err
 	}
 
+	c.debug(fmt.Sprintf("storing response for ck: %s", ck))
+
 	data, err := json.Marshal(resp) // TODO: we may want to store this as an http.Request; not a rest.Request
-	if err == nil {
-		c.cache.Set(ck, data)
+	if err != nil {
+		c.debug(fmt.Sprintf("error serializating response: %s", err.Error()))
+		return err
 	}
+
+	c.cache.Set(ck, data)
 
 	return nil
 }
@@ -84,13 +106,20 @@ func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
 func cacheKey(r rest.Request) (string, error) {
 
 	if r.Method == rest.Get {
-		// TODO: exclude the apikey from the cache key?
 		// TODO: order the fields? we've already taken care of it, sort of, by the ordered if-statements for adding it to the queryParams
-		data, err := json.Marshal(r.QueryParams)
+
+		authKey := r.QueryParams["key"]
+		delete(r.QueryParams, "key") // We're removing the key from the parameters, such that it does not end up in the cache
+
+		request, err := rest.BuildRequestObject(r)
 		if err != nil {
 			return "", err
 		}
-		key := r.BaseURL + string(data[:]) // NOTE: all query parameters are used in creating the cache key; alternatively, when using the body, that should be included, instead
+
+		r.QueryParams["key"] = authKey // We're putting the authentication key back where it was
+
+		key := request.URL.String()
+
 		return key, nil
 	}
 
