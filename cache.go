@@ -34,6 +34,12 @@ func WithCacheHeader(cacheHeader string) CacheModifier {
 	}
 }
 
+func WithCacheTimeInSeconds(cacheTimeInSeconds int) CacheModifier {
+	return func(c *Client) {
+		c.cacheTimeInSeconds = cacheTimeInSeconds
+	}
+}
+
 func (c *Client) checkCache(r rest.Request) (*rest.Response, error) {
 
 	c.debug("checking cache")
