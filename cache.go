@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/gregjones/httpcache"
 	"github.com/sendgrid/rest"
@@ -32,6 +34,12 @@ func WithCacheHeader(cacheHeader string) CacheModifier {
 	}
 }
 
+func WithCacheTimeInSeconds(cacheTimeInSeconds int) CacheModifier {
+	return func(c *Client) {
+		c.cacheTimeInSeconds = cacheTimeInSeconds
+	}
+}
+
 func (c *Client) checkCache(r rest.Request) (*rest.Response, error) {
 
 	c.debug("checking cache")
@@ -50,20 +58,40 @@ func (c *Client) checkCache(r rest.Request) (*rest.Response, error) {
 	c.debug(fmt.Sprintf("looking up key: %s", ck))
 
 	cachedResponse, ok := c.cache.Get(ck)
-	if ok {
-		var response rest.Response
-		err := json.Unmarshal(cachedResponse, &response)
-		if c.cacheHeader != "" {
-			response.Headers[c.cacheHeader] = []string{"1"}
-		}
-
-		c.debug("returning cached response")
-		return &response, err
+	if !ok {
+		c.debug("no cached response found")
+		return nil, nil
 	}
 
-	c.debug("no cached response found")
-	// No cached response found; return empty
-	return nil, nil
+	var response rest.Response
+	err = json.Unmarshal(cachedResponse, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	date, ok := response.Headers["Date"]
+	if !ok {
+		// NOTE: this effectively results in the actual request being performed whenever the Date header is not set
+		return nil, nil
+	}
+
+	// TODO: also implement Max-Age?
+	// TODO: does this work properly with the timezone? the actual time that a response is considered valid also depends on the timezone now.
+	cachedResponseDate, _ := http.ParseTime(date[0])
+	numSeconds := c.cacheTimeInSeconds
+	duration := time.Duration(numSeconds) * time.Second
+	if time.Since(cachedResponseDate) > duration {
+		c.debug(fmt.Sprintf("cached response is too old"))
+		c.cache.Delete(ck)
+		return nil, nil
+	}
+
+	if c.cacheHeader != "" {
+		response.Headers[c.cacheHeader] = []string{"1"}
+	}
+
+	c.debug("returning cached response")
+	return &response, err
 }
 
 func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
@@ -88,6 +116,13 @@ func (c *Client) updateCache(req rest.Request, resp *rest.Response) error {
 	if err != nil {
 		c.debug(fmt.Sprintf("error creating cache key: %s", err.Error()))
 		return err
+	}
+
+	_, ok := resp.Headers["Date"]
+	if !ok {
+		date := []string{(time.Now()).Format(http.TimeFormat)} // TODO: timezone?
+		c.debug(fmt.Sprintf("adding date header to response: %s", date[0]))
+		resp.Headers["Date"] = date
 	}
 
 	c.debug(fmt.Sprintf("storing response for ck: %s", ck))
