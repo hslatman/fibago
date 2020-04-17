@@ -68,10 +68,9 @@ status: 200
 
 ## Caching
 
-The API client can perform basic caching, although its implementation is experimental for now.
 Fingerbank allows 300 requests per hour, which is quite nice and permissive, but there may be cases in which this limit is reached before an hour passes, so caching may help preventing this limit from being reached when many similar queries are executed.
-Due to the fact that the Fingerbank API does not seem send caching headers and requests are not RESTful per se, using the RFC 7234 compliant [httpcache](https://github.com/gregjones/httpcache) directly was not really an option, unfortunately.
-Despite this, we've started implementation of a basic method for caching that is inspired by and should be largely compatible with said httpcache library, resulting in any of the caches that implement the httpcache.Cache interface in being candidates to be used with this Fingerbank API client.
+Due to the fact that the Fingerbank API does not seem to send cache headers and requests are not RESTful per se, using the RFC 7234 compliant [httpcache](https://github.com/gregjones/httpcache) directly was not really an option, unfortunately.
+Despite this, a basic approach to caching inspired by and largely compatible with said httpcache library, was implemented, resulting in any of the caches that implement the httpcache.Cache interface in being a candidate to be used with this Fingerbank API client.
 
 Caching can be enabled by creating a cache and modifying the Client using a ClientModifier.
 An example showing how this is done with a cache backed by [peterbourgon/diskv](https://github.com/peterbourgon/diskv), initialized by [gregjones/httpcache](https://github.com/gregjones/httpcache/diskcache) is shown below:
@@ -108,7 +107,7 @@ func main() {
 }
 ```
 
-An example of using the cache looks like this:
+An example of using the client with a cache configured looks like this:
 
 ```bash
 $ go run fiba.go
@@ -120,6 +119,13 @@ map[Content-Length:[539] Content-Type:[application/json] Date:[Mon, 13 Apr 2020 
 ```
 
 Note the additional header, X-From-Cache, that is set when the response comes from the cache.
+The name of the header can be customized using the WithCacheHeader CacheModifier when initializing the Client.
+
+### Cache Invalidation
+
+The clien will invalidate results that are older than 24 hours by default.
+The cached response will only be cleared when 
+This setting can be configured using the WithCacheTimeInSeconds CacheModifier when initializing the Client.
 
 ## Logging
 
@@ -139,12 +145,14 @@ The library uses [sendgrid/rest](https://github.com/sendgrid/rest) under the hoo
 ## TODO
 
 * Fix incomplete API endpoints. Some are unclear from the documentation alone or simply don't seem to work at the moment.
-* Cache invalidation (either based on date and some timeout, or passing some additional parameter from client, or something different?)
+* Add a basic method (String()? something different?) on the Client that lists its settings.
 * Nicer cache approach with plain http responses (not json marshalled) and extending the default HTTP client (i.e. RoundTripper?) instead of using [sendgrid/rest](https://github.com/sendgrid/rest)?
-* Improve directory structure for easier imports and usage (i.e. move critical code to the top level, minimize imported code when not used)
 * Typed responses?
 * Improve logging setup and what is being logged
-* Improve configuration for the HTTP cache
+* Implement Rate Limit handling
+* Improve configuration for the HTTP cache: move it to the actual Cache (wrapper) implementation
+* Add functionality for clearing the cache for responses that are not requested? This likely involves globbing the cache directory and moving out specific files.
+* Add functionality for excluding certain URLs or cache keys from being invalidated, or have a different invalidation time? For example for the Static() and Devices(), which are larger files that should probably be handled a little bit different.
 * Add request/response metrics?
 * Add set of errors to return
 * Make the client implementation use a local instance of the Fingerbank data (see Static() function and description on [fingerbank/perl-client](https://github.com/fingerbank/perl-client/blob/master/client-development-guidelines.md))

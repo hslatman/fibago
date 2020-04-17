@@ -1,8 +1,6 @@
 package fibago
 
 import (
-	//"fmt"
-
 	"strconv"
 	"strings"
 
@@ -10,10 +8,12 @@ import (
 )
 
 const (
-	version     = "0.0.1"
-	baseURL     = "https://api.fingerbank.org/api/v2"
-	userAgent   = "https://github.com/hslatman/fibago"
-	cacheHeader = "X-From-Cache"
+	version = "0.0.1"
+
+	defaultBaseURL            = "https://api.fingerbank.org/api/v2"
+	defaultUserAgent          = "https://github.com/hslatman/fibago"
+	defaultCacheHeader        = "X-From-Cache"
+	defaultCacheTimeInSeconds = 24 * 60 * 60 // 24 hours
 
 	endpointInterrogate     = "/combinations/interrogate"
 	endpointDevices         = "/devices/"
@@ -39,11 +39,11 @@ type Client struct {
 func NewClient(apiKey string, modifiers ...ClientModifier) *Client {
 
 	c := &Client{
-		baseURL:            baseURL,
+		baseURL:            defaultBaseURL,
 		apiKey:             apiKey,
-		userAgent:          userAgent,
-		cacheHeader:        cacheHeader,
-		cacheTimeInSeconds: 24 * 60 * 60, // 24 hours
+		userAgent:          defaultUserAgent,
+		cacheHeader:        defaultCacheHeader,
+		cacheTimeInSeconds: defaultCacheTimeInSeconds,
 	}
 
 	c.modifiers = append(c.modifiers, modifiers...)
@@ -212,6 +212,7 @@ func (c *Client) DevicesBaseInfo() (*rest.Response, error) {
 		QueryParams: queryParams,
 	}
 
+	// TODO: different caching behavior for this call?
 	response, err := c.checkCache(request)
 	if err != nil {
 		return nil, err
