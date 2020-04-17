@@ -26,22 +26,24 @@ const (
 type ClientModifier func(c *Client)
 
 type Client struct {
-	baseURL     string
-	apiKey      string
-	userAgent   string
-	modifiers   []ClientModifier
-	logger      Logger
-	cache       Cache
-	cacheHeader string
+	baseURL            string
+	apiKey             string
+	userAgent          string
+	modifiers          []ClientModifier
+	logger             Logger
+	cache              Cache
+	cacheHeader        string
+	cacheTimeInSeconds int
 }
 
 func NewClient(apiKey string, modifiers ...ClientModifier) *Client {
 
 	c := &Client{
-		baseURL:     baseURL,
-		apiKey:      apiKey,
-		userAgent:   userAgent,
-		cacheHeader: cacheHeader,
+		baseURL:            baseURL,
+		apiKey:             apiKey,
+		userAgent:          userAgent,
+		cacheHeader:        cacheHeader,
+		cacheTimeInSeconds: 24 * 60 * 60, // 24 hours
 	}
 
 	c.modifiers = append(c.modifiers, modifiers...)
