@@ -123,9 +123,11 @@ The name of the header can be customized using the WithCacheHeader CacheModifier
 
 ### Cache Invalidation
 
-The clien will invalidate results that are older than 24 hours by default.
-The cached response will only be cleared when 
-This setting can be configured using the WithCacheTimeInSeconds CacheModifier when initializing the Client.
+The client will invalidate results that are older than 24 hours by default.
+The number of seconds that a cached response is considered valid can be configured using the WithCacheTimeInSeconds CacheModifier when initializing the Client.
+A cached response will only be cleared when an actual request with the same cache key is being performed, so some data may become stale and remain dormant.
+This client currently doesn't offer a way for cleaning up the stale data, but might do so in the (near) future.
+
 
 ## Logging
 
@@ -153,6 +155,7 @@ The library uses [sendgrid/rest](https://github.com/sendgrid/rest) under the hoo
 * Improve configuration for the HTTP cache: move it to the actual Cache (wrapper) implementation
 * Add functionality for clearing the cache for responses that are not requested? This likely involves globbing the cache directory and moving out specific files.
 * Add functionality for excluding certain URLs or cache keys from being invalidated, or have a different invalidation time? For example for the Static() and Devices(), which are larger files that should probably be handled a little bit different.
+* Option for disabling a request from going through the cache
 * Add request/response metrics?
 * Add set of errors to return
 * Make the client implementation use a local instance of the Fingerbank data (see Static() function and description on [fingerbank/perl-client](https://github.com/fingerbank/perl-client/blob/master/client-development-guidelines.md))
