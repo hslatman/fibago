@@ -90,7 +90,7 @@ func main() {
 
     cache := diskcache.New("./cache") // This will create the cache directory in the current working directory
     
-    client := fingerbank.NewClient("<apikey>", fc.WithCache(cache))
+    client := fingerbank.NewClient("<apikey>", fingerbank.WithCache(cache))
 	
 	params := &fingerbank.InterrogateParameters{
 		DHCPFingerprint: "1,15,3,6,44,46,47,31,33,121,249,43", // Example DHCP fingerprint
