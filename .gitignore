@@ -1,1 +1,4 @@
 vendor/
+
+# the generated cache directory if running examples
+/cache/
