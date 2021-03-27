@@ -5,14 +5,14 @@ import (
 
 	"github.com/tidwall/gjson"
 
-	"github.com/hslatman/fibago"
+	fingerbank "github.com/hslatman/fingerbank-go"
 )
 
 func main() {
 
-	client := fibago.NewClient("<apikey>")
+	client := fingerbank.NewClient("<apikey>")
 
-	params := &fibago.InterrogateParameters{
+	params := &fingerbank.InterrogateParameters{
 		DHCPFingerprint: "1,15,3,6,44,46,47,31,33,121,249,43", // Example DHCP fingerprint
 	}
 	response, err := client.Interrogate(params) // Example DHCP fingerprint
@@ -23,7 +23,7 @@ func main() {
 	}
 
 	status := response.StatusCode
-	fmt.Println(fmt.Sprintf("status: %d", status))
+	fmt.Printf("status: %d\n", status)
 	if status == 401 { // API key not set or invalid
 		fmt.Println(response.Body)
 		return

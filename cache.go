@@ -1,4 +1,4 @@
-package fibago
+package fingerbank
 
 import (
 	"encoding/json"

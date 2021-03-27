@@ -1,13 +1,13 @@
-# fibago
+# fingerbank-go
 
 A (small and incomplete) Go client for the [Fingerbank API](https://api.fingerbank.org/).
 
 ## Usage
 
-Retrieve the fibago library:
+Retrieve the fingerbank library:
 
 ```bash
-$ go get github.com/hslatman/fibago
+$ go get github.com/hslatman/fingerbank-go
 ```
 
 You'll need to get an API key from Fingerbank.
@@ -22,14 +22,14 @@ import (
 
 	"github.com/tidwall/gjson"
 
-	"github.com/hslatman/fibago"
+	fingerbank "github.com/hslatman/fingerbank-go"
 )
 
 func main() {
 
-	client := fibago.NewClient("<apikey>")
+	client := fingerbank.NewClient("<apikey>")
 
-	params := &fibago.InterrogateParameters{
+	params := &fingerbank.InterrogateParameters{
 		DHCPFingerprint: "1,15,3,6,44,46,47,31,33,121,249,43", // Example DHCP fingerprint
 	}
 	response, err := client.Interrogate(params) 
@@ -83,16 +83,16 @@ import (
 
 	"github.com/gregjones/httpcache/diskcache"
 
-	"github.com/hslatman/fibago"
+	fingerbank "github.com/hslatman/fingerbank-go"
 )
 
 func main() {
 
     cache := diskcache.New("./cache") // This will create the cache directory in the current working directory
     
-    client := fibago.NewClient("<apikey>", fc.WithCache(cache))
+    client := fingerbank.NewClient("<apikey>", fc.WithCache(cache))
 	
-	params := &fibago.InterrogateParameters{
+	params := &fingerbank.InterrogateParameters{
 		DHCPFingerprint: "1,15,3,6,44,46,47,31,33,121,249,43", // Example DHCP fingerprint
 	}
     response, err := client.Interrogate(params) 
